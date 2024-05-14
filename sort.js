@@ -8,45 +8,43 @@ let _merge_sort_problem = {
 	// object method solving the problem at hand
 	// i.e. performing a merge-sort
 	sort: function*() {
-		if(this.start == this.end) {
+		if (this.start == this.end) {
 			yield this.list[this.start];
 			return;
 		}
 
+		// create "subproblem" for sorting the first half (left)
+		// and second half (right) of the list
 		const mid = Math.floor((this.start + this.end) / 2);
-		const left = Object.setPrototypeOf(
-			{end: mid},
-			this
-		).sort();
-		const right = Object.setPrototypeOf(
-			{start: mid + 1},
-			this
-		).sort();
+		let left = Object.create(this);
+		left.end = mid;
+		let right = Object.create(this);
+		right.start = mid + 1;
 
-		let next_smallest_left = left.next();
-		let next_smallest_right = right.next();
+		let sorted_left = left.sort();
+		let sorted_right = right.sort();
+
+		let next_smallest_left = sorted_left.next();
+		let next_smallest_right = sorted_right.next();
 
 		// standard merge-sort procedure...
-		while(true) {
+		while (!next_smallest_left.done && !next_smallest_right.done) {
 			if(next_smallest_left.value > next_smallest_right.value) {
 				yield next_smallest_right.value;
-				next_smallest_right = right.next();
+				next_smallest_right = sorted_right.next();
 			} else {
 				yield next_smallest_left.value;
-				next_smallest_left = left.next();
+				next_smallest_left = sorted_left.next();
 			}
-			if(next_smallest_left.done) {
-				// no more on left, yield the rest of right side
-				yield next_smallest_right.value;
-				yield* right;
-				break;
-			}
-			if(next_smallest_right.done) {
-				// ... vice versa
-				yield next_smallest_left.value;
-				yield* left;
-				break;
-			}
+		}
+		if (next_smallest_left.done) {
+			// no more on left, yield the rest of right side
+			yield next_smallest_right.value;
+			yield* sorted_right;
+		} else if (next_smallest_right.done) {
+			// ... vice versa
+			yield next_smallest_left.value;
+			yield* sorted_left;
 		}
 	}
 }
