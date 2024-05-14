@@ -1,9 +1,9 @@
 let _merge_sort_problem = {
 	// Attributes relating to the context of the problem
 	// (to be populated later)
-	list: undefined,
-	start: undefined,
-	end: undefined,
+	list: undefined, // list containing slice that we want to sort
+	start: undefined, // index of start of slice we want to sort
+	end: undefined, // index of end of slice we want to sort
 
 	// object method solving the problem at hand
 	// i.e. performing a merge-sort
@@ -13,14 +13,18 @@ let _merge_sort_problem = {
 			return;
 		}
 
-		// create "subproblem" for sorting the first half (left)
+		// create "subproblems" for sorting the first half (left)
 		// and second half (right) of the list
+		// ... by creating new objects with with current object
+		// as prototype, and then adjust the problem parameters
+		// which are different
 		const mid = Math.floor((this.start + this.end) / 2);
 		let left = Object.create(this);
 		left.end = mid;
 		let right = Object.create(this);
 		right.start = mid + 1;
 
+		// solve the subproblems
 		let sorted_left = left.sort();
 		let sorted_right = right.sort();
 
