@@ -22,7 +22,7 @@ Natural questions after learning this are:
 At first I assumed that the answers were:
 1. It's an implementation detail
 2. Yes
-3. Maybe...
+3. Probably not
 
 But then when writing a computation library for a problem in pure mathematics,
 it occured to me that the pattern I was trying to create might be actually be
@@ -95,8 +95,98 @@ at the cost of being a little long.
 
 ## Merge-sort example (JavaScript)
 
+Merge-sort is a standard divide-and-conquer algorithm where an unsorted
+list is *divided* into two halves, each half is *conquered* (sorted recursively),
+then merged.
+Check out [this webpage](https://www.geeksforgeeks.org/merge-sort/) for a good description.
 
-### closing remarks on this example
+Here we will look at a JavaScript implementation making use of some
+[generator function syntax](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Statements/function*)
+as well as a prototype-based paradigm.
+
+At a high level, this program defines an object `_merge_sort_problem` which contains the data for our problem:
+the list we want to sort, and the indices between which we want to sort.
+This allows to to keep the list, but modify the start and end of the slice we are sorting
+when *dividing* and *conquering* the problem.
+When provided with a list to sort, we naturally want to set the start and end indices
+of our problem to span the whole list, as shown in `custom_sort`.
+
+```js
+let _merge_sort_problem = {
+	// Attributes relating to the context of the problem
+	// (to be populated in problem objects)
+	list: undefined, // list containing slice that we want to sort
+	start: undefined, // index of start of slice we want to sort
+	end: undefined, // index of end of slice we want to sort
+
+	// Method solving the problem at hand
+	// i.e. performing a merge-sort
+	sort: function*() { /* ... */ }
+}
+
+function custom_sort(input_list) {
+  return {
+    list: input_list,
+    start: 0,
+    end: input_list.length - 1,
+    __proto__: _merge_sort_problem,
+  }.sort();
+}
+
+// checks
+console.log(...custom_sort([2])); // 2
+console.log(...custom_sort([2,1,3,0,8])); // 0,1,2,3,8
+```
+
+The only remaining part of the program which was redacted above is the body of the `sort` method here:
+
+```js
+// Base case (sorting 1 element):
+if (this.start == this.end) {
+  yield this.list[this.start];
+  return;
+}
+
+// create "subproblems" for sorting the first half (left)
+// and second half (right) of the list
+// ... by creating new objects with with current object
+// as prototype, and then adjust the problem parameters
+// which are different
+const mid = Math.floor((this.start + this.end) / 2);
+const left = { end: mid, __proto__: this };
+const right = { start: mid + 1, __proto__: this };
+
+// solve the subproblems
+let sorted_left = left.sort();
+let sorted_right = right.sort();
+
+// standard merge-sort procedure...
+let next_smallest_left = sorted_left.next();
+let next_smallest_right = sorted_right.next();
+
+// merge the two sorted subproblems until one is exhausted
+while (!next_smallest_left.done && !next_smallest_right.done) {
+  if (next_smallest_left.value > next_smallest_right.value) {
+    yield next_smallest_right.value;
+    next_smallest_right = sorted_right.next();
+  } else {
+    yield next_smallest_left.value;
+    next_smallest_left = sorted_left.next();
+  }
+}
+
+if (next_smallest_left.done) {
+  // no more on left, yield the rest of right side
+  yield next_smallest_right.value;
+  yield* sorted_right;
+} else if (next_smallest_right.done) {
+  // ... vice versa
+  yield next_smallest_left.value;
+  yield* sorted_left;
+}
+```
+
+### remarks on this example
 
 The ergonomic difference (i.e. the only thing that *really* matters)
 between the prototype-based implementation of merge-sort here
@@ -105,10 +195,38 @@ is that the parameters of the problem are put into an object as opposed to passe
 arguments to the recursive function calls.
 In essence, the function stack frames in the recursive implementation would be analogues
 of the objects in the prototype-based implementation.
-This can give slightly more concise code when the specialised problem only changes/adds
-a small amount of the context parameters (here either `start` or `end` is modified only).
-This benefit only increases for bespoke problems with larger amounts of context
-(this was in the case for the problem which inspired me to write this post).
+This could give more concise code when the specialised problem only changes/adds
+a small amount of the context parameters.
+
+#### Choice of emphasis
+In the current example, the relevant section is:
+```js
+const mid = Math.floor((this.start + this.end) / 2);
+const left = { end: mid, __proto__: this };
+const right = { start: mid + 1, __proto__: this };
+```
+The two subproblems are created with the current problem as the prototype, only one
+of the parameters to the problem is adjusted for each one.
+
+In a recursive non-prototype-based implementation, the analoguous code might look a little like this.
+```js
+const mid = Math.floor((this.start + this.end) / 2);
+let left = merge_sort(list, start, mid);
+let right = merge_sort(list, mid+1, end);
+```
+Which admittedly may look a little cleaner in this case but may be less so depending on the size
+of the problem context parameters and the amount changed in the subproblems.
+Aside from this it comes down to a stylistic preferrence and how much one wants to put
+an emphasis on the context of the problem since objects feel more substantial than
+function arguments.
+
+#### Memory performance safeguard
+There is also potentially a case to be made for avoiding unintentional/unnecessary copies of data.
+Using the prototype method allows sharing the data that is not specified to be different in the subproblems.
+The recursive solution could run the risk of not passing some large data by reference causing
+unnecessary copies.
+Also, the [spread literal syntax](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Operators/Spread_syntax#spread_in_object_literals)
+may also be used to give similar ergonomics, but similar risks also apply.
 
 ## Any take-away for statically typed languages? (Rust example)
 
